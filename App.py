@@ -1,7 +1,6 @@
 import dash
 from dash import html, dcc
 from dash.dependencies import Input, Output
-import pandas as pd
 import joblib
 import numpy as np
 import os
@@ -10,27 +9,29 @@ import os
 app = dash.Dash(__name__)
 server = app.server
 
-# Load pre-trained models
+# Load pre-trained models once
 rf_model = joblib.load("rf_model.pkl")
 xgb_model = joblib.load("xgb_model.pkl")
 logreg_model = joblib.load("logreg_model.pkl")
 
-# Load dataset for input reference
-df = pd.read_csv("Invistico_Airline.csv")
-df.drop_duplicates(inplace=True)
+# Define input features (must match training data)
+input_features = [
+    'Gender', 'Customer Type', 'Type of Travel', 'Class',
+    'Flight Distance', 'Inflight wifi service',
+    'Departure/Arrival time convenient', 'Ease of Online booking',
+    'Food and drink', 'Online boarding', 'Seat comfort',
+    'Inflight entertainment', 'On-board service', 'Leg room service',
+    'Baggage handling', 'Checkin service', 'Cleanliness',
+    'Departure Delay in Minutes'
+]
 
-# Define features (MUST match training features exactly)
-input_features = ['Gender', 'Customer Type', 'Type of Travel', 'Class',
-                  'Flight Distance', 'Inflight wifi service',
-                  'Departure/Arrival time convenient', 'Ease of Online booking',
-                  'Food and drink', 'Online boarding', 'Seat comfort',
-                  'Inflight entertainment', 'On-board service', 'Leg room service',
-                  'Baggage handling', 'Checkin service', 'Cleanliness',
-                  'Departure Delay in Minutes']
-
-# Helper to get dropdown options
-def get_dropdown_options(col):
-    return [{'label': str(val), 'value': val} for val in sorted(df[col].dropna().unique())]
+# Simplified dropdown options for categorical inputs
+dropdown_values = {
+    'Gender': ['Male', 'Female'],
+    'Customer Type': ['Loyal Customer', 'disloyal Customer'],
+    'Type of Travel': ['Business travel', 'Personal Travel'],
+    'Class': ['Eco', 'Eco Plus', 'Business'],
+}
 
 # Build layout
 app.layout = html.Div([
@@ -39,8 +40,8 @@ app.layout = html.Div([
     html.Div([
         html.Div([
             html.Label(f"{feature}"),
-            dcc.Input(id=feature, type='number', placeholder="Enter value") if df[feature].dtype in [np.int64, np.float64]
-            else dcc.Dropdown(id=feature, options=get_dropdown_options(feature), placeholder="Select value")
+            dcc.Input(id=feature, type='number', placeholder="Enter value") if feature not in dropdown_values
+            else dcc.Dropdown(id=feature, options=[{'label': i, 'value': i} for i in dropdown_values[feature]], placeholder="Select value")
         ], style={'marginBottom': '10px'}) for feature in input_features
     ], style={'columnCount': 2, 'padding': '20px'}),
 
@@ -66,10 +67,9 @@ def predict(n_rf, n_xgb, n_logreg, *values):
     ctx = dash.callback_context
     if not ctx.triggered:
         return "Awaiting input..."
-    
+
     model_name = ctx.triggered[0]['prop_id'].split('.')[0]
 
-    # Check if inputs are filled
     if any(v is None for v in values):
         return "⚠️ Please provide all inputs."
 
@@ -89,8 +89,6 @@ def predict(n_rf, n_xgb, n_logreg, *values):
 
 # Run app
 if __name__ == "__main__":
-    print("Launching Dash app...")
-    try:
-        app.run(debug=True, host='127.0.0.1', port=8050)
-    except Exception as e:
-        print("Failed to start server:", e)
+    port = int(os.environ.get("PORT", 8050))
+    print(f"Launching Dash app on port {port}...")
+    app.run_server(debug=True, host="0.0.0.0", port=port)
