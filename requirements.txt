@@ -1,7 +1,7 @@
 dash
 pandas
-scikit-learn
 plotly
 matplotlib
 seaborn
 xgboost
+scikit-learn==1.5.1
